@@ -1724,7 +1724,17 @@ bool Lookup::withinClassRandomize(const ASTContext& context, const NameSyntax& s
 
             break;
         case SyntaxKind::ThisHandle:
-            result.found = details.thisVar;
+            // fork: `this` binds to the class of the object handle used in
+            // the call (IEEE 1800-2023 18.7), whatever expression named the
+            // object: the class's own `this` variable. The symbol of the
+            // handle expression is not that object when it is a class
+            // property reached through another one
+            // (`a.b.randomize() with { this.x == 1; }`): it was rejected as
+            // a non-static property used from the calling class.
+            if (classScope.asSymbol().kind == SymbolKind::ClassType)
+                result.found = classScope.asSymbol().as<ClassType>().thisVar;
+            if (!result.found)
+                result.found = details.thisVar;
             if (!result.found)
                 result.found = findThisHandle(*context.scope, flags, name.range, result);
 
