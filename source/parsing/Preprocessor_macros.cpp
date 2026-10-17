@@ -831,7 +831,10 @@ bool Preprocessor::expandIntrinsic(MacroIntrinsic intrinsic, MacroExpansion& exp
             text.push_back('"');
 
             std::string_view rawText = toStringView(text.copy(alloc));
-            Token token(alloc, TokenKind::StringLiteral, {}, rawText, macroLoc, fileName);
+            // The value views the copy just made: `fileName` may point into a
+            // `line directive's name, which moves when later directives are added.
+            Token token(alloc, TokenKind::StringLiteral, {}, rawText, macroLoc,
+                        rawText.substr(1, rawText.size() - 2));
             expansion.append(token, macroLoc, loc, expansion.getRange());
             break;
         }
