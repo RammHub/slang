@@ -1930,6 +1930,20 @@ function void foo(ref int i);
 endfunction
 ```
 
+-Wstring-int-inside
+An `inside` set can only compare a `string` with strings and string literals.
+Some tools allow an integral value that is not a literal as well, implicitly
+converting it to a string, so this error can be downgraded for compatibility.
+```
+module m;
+    string names[$];
+    byte c;
+    initial begin
+        if (c inside {names}) begin end
+    end
+endmodule
+```
+
 -Wstring-int-concat
 String concatenations can only accept `string` typed operands and string literals.
 Some tools allow integer operands as well, implicitly converting them to strings,

@@ -103,6 +103,17 @@ bool Expression::bindMembershipExpressions(const ASTContext& context, TokenKind 
             // convertible to them).
             type = &comp.getStringType();
         }
+        else if ((bt.isString() && type->isIntegral()) || (bt.isIntegral() && type->isString())) {
+            // fork: a string compared with an integral value that isn't a
+            // literal (`c inside {names}` with a byte and a queue of
+            // strings). IEEE 1800 6.16 (Table 6-9) has no such comparison;
+            // other simulators take the integral value as a string. A
+            // diagnostic of the nonstandard group (an error by default),
+            // and the comparison is made on strings.
+            context.addDiag(diag::NonstandardStringIntInside, expr.sourceRange)
+                << keywordStr << bt << *type;
+            type = &comp.getStringType();
+        }
         else if (bt.isAggregate()) {
             // Aggregates are just never allowed in membership expressions.
             context.addDiag(diag::BadSetMembershipType, expr.sourceRange) << bt << keywordStr;

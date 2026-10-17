@@ -813,6 +813,7 @@ warning dynamic-non-procedural DynamicNotProcedural "cannot refer to an element 
 warning nonstandard-string-concat NonstandardStringConcat "string concatenation using '+' operator is non-standard"
 warning inc-dec-bit IncDecBit "increment/decrement of a 1-bit operand"
 warning string-int-concat ConcatWithStringInt "cannot mix strings and integers in a concatenation (use a cast if this is desired)"
+warning string-int-inside NonstandardStringIntInside "{} expression of type {} is compared with type {}: a string and an integral value that is not a literal (use a cast if this is desired)"
 warning range-select-reversed RangeSelectReversed "range of selection [{}:{}] from {} is reversed"
 
 subsystem Statements
@@ -1306,7 +1307,7 @@ group default = { real-underflow real-overflow vector-overflow int-overflow unco
                   qualifiers-on-out-of-block member-impl-not-found shift-count-overflow shift-count-negative
                   initializer-required package-import-in-class foreach-call-expr nonstandard-hierarchical-cross
                   nonstandard-inside nonstandard-bare-assoc-pattern literal-leading-underscore ref-arg-automatic
-                  string-int-concat range-select-reversed nonstandard-constraint-block format-empty-arg
+                  string-int-concat string-int-inside range-select-reversed nonstandard-constraint-block format-empty-arg
                   format-too-many-args clockvar-target-assign cross-ident-in-binsof ref-arg-in-fork-join
                   cannot-index-scalar string-in-constraint virtual-arg-name-mismatch undefined-param-override
                   redefinition redefinition-different-type }
