@@ -580,7 +580,10 @@ static bool isValidForceLVal(const Expression& expr, const ASTContext& context, 
                 if (inSelect && VariableSymbol::isKind(sym->kind))
                     return false;
 
-                if (sym->kind == SymbolKind::Net && !sym->as<NetSymbol>().netType.isBuiltIn())
+                // A whole net of a user-defined nettype can be forced (6.6.7);
+                // a select of one can't (IEEE 1800-2023 10.6.2).
+                if (inSelect && sym->kind == SymbolKind::Net &&
+                    !sym->as<NetSymbol>().netType.isBuiltIn())
                     context.addDiag(diag::BadForceNetType, expr.sourceRange);
             }
             return true;
