@@ -712,9 +712,17 @@ void Scope::handleNameConflict(const Symbol& member, const Symbol*& existing) co
         auto& ei = existing->as<ExplicitImportSymbol>();
         auto& mi = member.as<ExplicitImportSymbol>();
         if (ei.isFromExport != mi.isFromExport) {
-            // It doesn't hurt anything to set it for both, even though only one is an export.
-            ei.noteCorrespondingImport();
-            mi.noteCorrespondingImport();
+            if (ei.packageName == mi.packageName) {
+                // It doesn't hurt anything to set it for both, even though only one is an export.
+                ei.noteCorrespondingImport();
+                mi.noteCorrespondingImport();
+            }
+            else {
+                // The declaration being exported shall be imported from the same
+                // package_name used in the export (IEEE 1800-2023 26.6).
+                auto& exp = ei.isFromExport ? ei : mi;
+                addDiag(diag::PackageExportNotImported, exp.location) << exp.importName;
+            }
         }
 
         // These can't be checked until we can resolve the imports and
