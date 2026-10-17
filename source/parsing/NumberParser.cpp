@@ -134,7 +134,10 @@ int NumberParser::append(Token token, bool isFirst) {
                         return -1;
                     }
 
-                    hasUnknown = isLogicDigit(c);
+                    // An x / z digit followed by underscores ("7'dz_", 5.7.1) gets here
+                    // rather than the single-digit case above: record the digit itself.
+                    if (isLogicDigit(c))
+                        addDigit(getLogicCharValue(c), 10);
                 }
                 else if (c != '_') {
                     addDiag(diag::BadDecimalDigit, location + index);
