@@ -15,6 +15,7 @@
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/expressions/SelectExpressions.h"
 #include "slang/ast/symbols/ClassSymbols.h"
+#include "slang/ast/symbols/InstanceSymbols.h"
 #include "slang/ast/symbols/SubroutineSymbols.h"
 #include "slang/diagnostics/ConstEvalDiags.h"
 #include "slang/diagnostics/ExpressionsDiags.h"
@@ -667,6 +668,20 @@ Expression& CallExpression::createSystemCall(
     return *expr;
 }
 
+// The design element (module, interface, program, package or compilation
+// unit) a scope belongs to.
+static const Symbol* designElementOf(const Scope* scope) {
+    while (scope) {
+        auto& sym = scope->asSymbol();
+        if (sym.kind == SymbolKind::InstanceBody || sym.kind == SymbolKind::Package ||
+            sym.kind == SymbolKind::CompilationUnit) {
+            return &sym;
+        }
+        scope = sym.getParentScope();
+    }
+    return nullptr;
+}
+
 ConstantValue CallExpression::evalImpl(EvalContext& context) const {
     // If thisClass() is set call eval on it to be sure an error is issued.
     if (thisClass()) {
@@ -684,6 +699,22 @@ ConstantValue CallExpression::evalImpl(EvalContext& context) const {
     const SubroutineSymbol& symbol = *std::get<0>(subroutine);
     if (!checkConstant(context, symbol, sourceRange))
         return nullptr;
+
+    // A constant function call's function is declared in the calling design
+    // element, a package or $unit (IEEE 1800-2023 13.4.3): one in another
+    // module is a hierarchical reference.
+    if (!context.flags.has(EvalFlags::IsScript) &&
+        !context.getCompilation().hasFlag(CompilationFlags::AllowHierarchicalConst) &&
+        !context.astCtx.flags.has(ASTFlags::ConfigParam)) {
+        auto callee = designElementOf(symbol.getParentScope());
+        if (callee && callee->kind == SymbolKind::InstanceBody &&
+            callee->as<InstanceBodySymbol>().getDefinition().definitionKind !=
+                DefinitionKind::Interface &&
+            designElementOf(lookupLocation.getScope()) != callee) {
+            context.addDiag(diag::ConstEvalHierarchicalName, sourceRange) << symbol.name;
+            return nullptr;
+        }
+    }
 
     // Evaluate all argument in the current stack frame.
     SmallVector<ConstantValue, 4> args;
