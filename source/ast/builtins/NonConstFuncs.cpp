@@ -533,7 +533,11 @@ public:
         if (!checkArgCount(context, false, args, range, 1, 6))
             return comp.getErrorType();
 
+        // "The specified net shall be a scalar or a bit-select of a vector
+        // net" (IEEE 1800-2023 D.2).
         auto sym = args[0]->getSymbolReference(/* allowPacked */ false);
+        if (!sym && args[0]->kind == ExpressionKind::ElementSelect)
+            sym = args[0]->getSymbolReference(/* allowPacked */ true);
         if (!sym || sym->kind != SymbolKind::Net)
             context.addDiag(diag::ExpectedNetRef, args[0]->sourceRange);
 
