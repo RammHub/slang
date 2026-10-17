@@ -593,6 +593,7 @@ warning init-self InitSelf "initializer of '{}' refers to itself"
 warning unnamed-generate UnnamedGenerate "generate block is unnamed"
 warning member-impl-not-found MemberImplNotFound "implementation not found in parent scope for '{}'"
 warning ref-arg-automatic RefArgAutomaticFunc "'ref' arguments can only be used in 'automatic' subroutines"
+warning port-decl-range PortDeclImplicitRange "port '{}' is declared without a range but its net or variable declaration has one; the two ranges shall be identical"
 
 subsystem Expressions
 error BadUnaryExpression "invalid operand type {} to unary expression"

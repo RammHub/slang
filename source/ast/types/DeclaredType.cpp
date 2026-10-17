@@ -430,6 +430,25 @@ void DeclaredType::mergePortTypes(
     // for the packed one to look at.
     checkDims(unpackedDimensions, SymbolKind::FixedSizeUnpackedArrayType, false);
     checkDims(implicit.dimensions, SymbolKind::PackedArrayType, true);
+
+    // A port declared without a range whose net or variable declaration has
+    // one: the range specification between the two declarations of a port
+    // shall be identical (IEEE 1800-2023 23.2.2.1). (A named type, like a
+    // typedef of a packed array, has no range specification of its own.)
+    if (implicit.dimensions.empty()) {
+        auto ts = sourceSymbol.getDeclaredType() ? sourceSymbol.getDeclaredType()->getTypeSyntax()
+                                                 : nullptr;
+        bool hasRange = false;
+        if (ts && IntegerTypeSyntax::isKind(ts->kind))
+            hasRange = !ts->as<IntegerTypeSyntax>().dimensions.empty();
+        else if (ts && ts->kind == SyntaxKind::ImplicitType)
+            hasRange = !ts->as<ImplicitTypeSyntax>().dimensions.empty();
+        if (hasRange) {
+            auto& diag = context.addDiag(diag::PortDeclImplicitRange, location);
+            diag << sourceSymbol.name;
+            diag.addNote(diag::NoteDeclarationHere, sourceSymbol.location);
+        }
+    }
 }
 
 void DeclaredType::resolveAt(const ASTContext& context) const {
