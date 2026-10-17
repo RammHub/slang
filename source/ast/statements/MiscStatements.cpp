@@ -68,16 +68,12 @@ ER VariableDeclStatement::evalImpl(EvalContext& context) const {
     // Figure out the initial value for the variable.
     ConstantValue initial;
     if (auto initializer = symbol.getInitializer()) {
-        // Initialization of static variables is skipped in constant functions.
-        // This is confusing so issue a warning.
-        if (symbol.lifetime == VariableLifetime::Static && !initializer->bad()) {
-            context.addDiag(diag::ConstEvalStaticSkipped, initializer->sourceRange);
-        }
-        else {
-            initial = initializer->eval(context);
-            if (!initial)
-                return ER::Fail;
-        }
+        // IEEE 1800-2023 13.4.3: in a constant function call, variables --
+        // static ones included -- "are initialized as they would be for
+        // normal simulation", afresh for each call.
+        initial = initializer->eval(context);
+        if (!initial)
+            return ER::Fail;
     }
 
     if (!initial)
