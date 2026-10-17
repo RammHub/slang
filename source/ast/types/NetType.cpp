@@ -10,6 +10,7 @@
 #include "slang/ast/ASTContext.h"
 #include "slang/ast/ASTSerializer.h"
 #include "slang/ast/Compilation.h"
+#include "slang/ast/Lookup.h"
 #include "slang/ast/Scope.h"
 #include "slang/ast/expressions/MiscExpressions.h"
 #include "slang/ast/symbols/SubroutineSymbols.h"
@@ -115,6 +116,18 @@ const SubroutineSymbol* NetType::getResolutionFunction() const {
                 validateResolver(*this, *resolver.value(), range, context);
                 return *resolver;
             }
+        }
+    }
+    else if (declSyntax.type->kind == SyntaxKind::NamedType) {
+        // `nettype wTsum nettypeid2;` declares another name for a nettype
+        // (IEEE 1800-2023 6.6.7): its resolution function included.
+        ASTContext context(*scope, LookupLocation::after(*this));
+        LookupResult result;
+        Lookup::name(*declSyntax.type->as<NamedTypeSyntax>().name, context, LookupFlags::None,
+                     result);
+        if (result.found && result.found != this && result.found->kind == SymbolKind::NetType) {
+            resolver = result.found->as<NetType>().getResolutionFunction();
+            return *resolver;
         }
     }
 
