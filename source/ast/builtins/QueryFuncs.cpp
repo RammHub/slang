@@ -58,14 +58,15 @@ public:
 
     ConstantValue eval(EvalContext& context, const Args& args, SourceRange,
                        const CallExpression::SystemCallInfo&) const final {
-        if (!noHierarchical(context, *args[0]))
-            return nullptr;
-
+        // Of a fixed-size type, $bits is a constant whatever its argument
+        // (IEEE 1800-2023 20.6.2, 11.2.1), a hierarchical reference too.
         uint64_t width;
         if (args[0]->type->isFixedSize()) {
             width = args[0]->type->getBitstreamWidth();
         }
         else {
+            if (!noHierarchical(context, *args[0]))
+                return nullptr;
             ConstantValue cv = args[0]->eval(context);
             if (!cv)
                 return nullptr;
