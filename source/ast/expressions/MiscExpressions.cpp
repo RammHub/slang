@@ -74,7 +74,11 @@ Expression& ValueExpressionBase::fromSymbol(const ASTContext& context, const Sym
             return badExpr(comp, nullptr);
         }
         else if (!var.flags.has(VariableFlags::RefStatic) && flags.has(DisallowedAutoVarContexts) &&
-                 var.kind != SymbolKind::PatternVar) {
+                 var.kind != SymbolKind::PatternVar &&
+                 // IEEE 1800-2023 13.3.2: automatic variables shall not be referenced in
+                 // intra-assignment *event* controls of nonblocking assignments; delays are fine.
+                 (flags.has(ASTFlags::NonProcedural | ASTFlags::StaticInitializer) ||
+                  flags.has(ASTFlags::EventExpression))) {
             if (flags.has(ASTFlags::NonProcedural)) {
                 context.addDiag(diag::AutoFromNonProcedural, sourceRange) << symbol.name;
                 return badExpr(comp, nullptr);
