@@ -9,6 +9,7 @@
 
 #include "slang/ast/ASTVisitor.h"
 #include "slang/ast/Compilation.h"
+#include "slang/ast/expressions/SelectExpressions.h"
 #include "slang/diagnostics/StatementsDiags.h"
 #include "slang/syntax/AllSyntax.h"
 
@@ -538,6 +539,19 @@ Constraint& SolveBeforeConstraint::fromSyntax(const SolveBeforeConstraintSyntax&
             }
 
             auto [sym, sourceRange] = getConstraintPrimary(expr);
+            // fork: a member of a packed struct variable declared rand is
+            // part of a random variable (IEEE 1800 18.4: the whole packed
+            // value is randomized), though the member itself has no rand
+            // qualifier: the struct variable decides.
+            if (sym && context.getRandMode(*sym) == RandMode::None) {
+                const Expression* e = &expr;
+                while (e->kind == ExpressionKind::MemberAccess &&
+                       e->as<MemberAccessExpression>().value().type->isIntegral()) {
+                    e = &e->as<MemberAccessExpression>().value();
+                    if (auto base = e->getSymbolReference())
+                        sym = base;
+                }
+            }
             if (!sym || context.getRandMode(*sym) == RandMode::None)
                 context.addDiag(diag::BadSolveBefore, sourceRange);
             else if (sym && context.getRandMode(*sym) == RandMode::RandC)
