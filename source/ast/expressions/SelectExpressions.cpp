@@ -527,6 +527,16 @@ Expression& RangeSelectExpression::fromSyntax(Compilation& comp, Expression& val
                     diag << selectionRange.left << selectionRange.right;
                     diag << valueType;
                 }
+                // fork: with the diagnostic downgraded to a warning the
+                // expression still has to exist. A reversed part-select of a
+                // packed value has the width its bounds give and no defined
+                // value (IEEE 1800 11.5.1 makes it illegal): unknown bits.
+                if (valueType.isIntegral()) {
+                    const bitwidth_t width = bitwidth_t(selectionRange.width());
+                    auto& xtype = comp.getType(width, IntegralFlags::FourState);
+                    return *comp.emplace<IntegerLiteral>(comp, xtype, SVInt::createFillX(width, false),
+                                                         false, result->sourceRange);
+                }
                 return badExpr(comp, result);
             }
 
