@@ -95,6 +95,37 @@ public:
     }
 };
 
+// $fopen (IEEE 1800-2023 21.3.1): "filename is an expression that is a string
+// literal, string data type, or an integral data type containing a character
+// string"; the same for type. Formals of type string would reject an integral
+// variable holding the name (Verilog-2001 code passes a reg).
+class FOpenFunc : public SystemSubroutine {
+public:
+    FOpenFunc() : SystemSubroutine(KnownSystemName::FOpen, SubroutineKind::Function) {}
+
+    const Type& checkArguments(const ASTContext& context, const Args& args, SourceRange range,
+                               const Expression*) const final {
+        auto& comp = context.getCompilation();
+        if (!checkArgCount(context, false, args, range, 1, 2))
+            return comp.getErrorType();
+
+        for (auto arg : args) {
+            if (!arg->type->canBeStringLike()) {
+                context.addDiag(diag::InvalidStringArg, arg->sourceRange) << *arg->type;
+                return comp.getErrorType();
+            }
+        }
+
+        return comp.getIntType();
+    }
+
+    ConstantValue eval(EvalContext& context, const Args&, SourceRange range,
+                       const CallExpression::SystemCallInfo&) const final {
+        notConst(context, range);
+        return nullptr;
+    }
+};
+
 class ScanfFunc : public SystemSubroutine {
 public:
     explicit ScanfFunc(bool isFscanf) :
@@ -599,8 +630,7 @@ void Builtins::registerNonConstFuncs() {
     REGISTER(KnownSystemName::URandomRange, uintType, 1,
              std::vector<const Type*>{&uintType, &uintType});
 
-    REGISTER(KnownSystemName::FOpen, intType, 1,
-             std::vector<const Type*>{&stringType, &stringType});
+    addSystemSubroutine(std::make_shared<FOpenFunc>());
     REGISTER(KnownSystemName::FClose, voidType, 1, intArg);
     REGISTER(KnownSystemName::FGetC, intType, 1, intArg);
     REGISTER(KnownSystemName::UngetC, intType, 2, std::vector<const Type*>{&intType, &intType});
