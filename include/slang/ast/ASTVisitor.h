@@ -138,8 +138,9 @@ public:
         }
 
         if constexpr (std::is_base_of_v<GenericClassDefSymbol, T>) {
-            for (auto&& spec : t.specializations())
-                spec.visit(DERIVED);
+            // (by index: visiting a specialization may make more)
+            for (size_t i = 0; i < t.numSpecializations(); i++)
+                t.specializationAt(i).visit(DERIVED);
         }
 
         if constexpr (std::is_base_of_v<Scope, T>) {

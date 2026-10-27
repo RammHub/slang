@@ -259,12 +259,17 @@ public:
     const Type& getInvalidSpecialization() const;
 
     /// Gets the number of specializations that have been made for this generic class.
-    size_t numSpecializations() const { return specMap.size(); }
+    size_t numSpecializations() const { return specList.size(); }
 
-    /// Gets an iterator to the specializations created for the generic class.
+    /// Gets an iterator to the specializations created for the generic class,
+    /// in the order they were made (the map's own order follows pointers and
+    /// differs from run to run; diagnostics coalesce to the first issued).
     auto specializations() const {
-        return std::views::transform(specMap, [](auto& p) -> decltype(auto) { return *p.second; });
+        return std::views::transform(specList, [](auto p) -> decltype(auto) { return *p; });
     }
+
+    /// The specialization made i-th (by index: visiting one may make more).
+    const Type& specializationAt(size_t i) const { return *specList[i]; }
 
     void addForwardDecl(const ForwardingTypedefSymbol& decl) const;
     const ForwardingTypedefSymbol* getFirstForwardDecl() const { return firstForward; }
@@ -295,6 +300,7 @@ private:
     using SpecMap = flat_hash_map<detail::ClassSpecializationKey, const Type*,
                                   detail::ClassSpecializationHasher>;
     mutable SpecMap specMap;
+    mutable std::vector<const Type*> specList;   // specMap's values, in the order they were made
     mutable SpecMap uninstantiatedSpecMap;
     mutable std::optional<const Type*> defaultSpecialization;
     mutable const ForwardingTypedefSymbol* firstForward = nullptr;
