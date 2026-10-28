@@ -205,6 +205,9 @@ public:
 
     const Expression* getIffExpr() const;
 
+    /// fork: whether a cross item declared this coverpoint implicitly.
+    bool isImplicitlyDeclared() const { return isImplicit; }
+
     void checkBins() const;
 
     void serializeTo(ASTSerializer& serializer) const;

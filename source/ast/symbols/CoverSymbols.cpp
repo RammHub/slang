@@ -19,6 +19,7 @@
 #include "slang/diagnostics/DeclarationsDiags.h"
 #include "slang/diagnostics/ExpressionsDiags.h"
 #include "slang/syntax/AllSyntax.h"
+#include "slang/syntax/SyntaxPrinter.h"
 #include "slang/util/String.h"
 
 namespace {
@@ -825,6 +826,14 @@ CoverpointSymbol& CoverpointSymbol::fromSyntax(const Scope& scope, const Coverpo
     return *result;
 }
 
+// fork: the name of the coverpoint a non-standard hierarchical cross item (a.b.c)
+// declares implicitly: its text without trivia, '.' replaced with '_'.
+static std::string hierarchicalCrossItemName(const NameSyntax& syntax) {
+    auto str = SyntaxPrinter().setIncludeTrivia(false).print(syntax).str();
+    std::ranges::replace(str, '.', '_');
+    return str;
+}
+
 CoverpointSymbol& CoverpointSymbol::fromImplicit(const Scope& scope, const NameSyntax& syntax) {
     auto loc = syntax.getFirstToken().location();
     auto& comp = scope.getCompilation();
@@ -835,8 +844,7 @@ CoverpointSymbol& CoverpointSymbol::fromImplicit(const Scope& scope, const NameS
     }
     else {
         // '.' is replaced with '_' when naming the implicit coverpoint
-        auto str = syntax.toString();
-        std::ranges::replace(str, '.', '_');
+        auto str = hierarchicalCrossItemName(syntax);
         name = toStringView(comp.copyFrom(std::span<const char>(str.data(), str.size())));
     }
 
@@ -938,8 +946,18 @@ CoverCrossSymbol& CoverCrossSymbol::fromSyntax(const Scope& scope, const CoverCr
     for (auto item : syntax.items) {
         // For simple identifier names, try to look up an existing coverpoint or cross.
         const Symbol* symbol = nullptr;
-        if (item->kind == SyntaxKind::IdentifierName)
+        if (item->kind == SyntaxKind::IdentifierName) {
             symbol = scope.find(item->as<IdentifierNameSyntax>().identifier.valueText());
+        }
+        else {
+            // fork: a hierarchical item another cross of this covergroup already
+            // named: the same implicit coverpoint, not a second one of that name.
+            symbol = scope.find(hierarchicalCrossItemName(*item));
+            if (symbol && (symbol->kind != SymbolKind::Coverpoint ||
+                           !symbol->as<CoverpointSymbol>().isImplicitlyDeclared())) {
+                symbol = nullptr;
+            }
+        }
 
         if (symbol && symbol->kind == SymbolKind::Coverpoint) {
             targets.push_back(&symbol->as<CoverpointSymbol>());
@@ -1082,11 +1100,26 @@ void InvalidBinsSelectExpr::serializeTo(ASTSerializer& serializer) const {
 BinsSelectExpr& ConditionBinsSelectExpr::fromSyntax(const BinsSelectConditionExprSyntax& syntax,
                                                     const ASTContext& context) {
     auto& comp = context.getCompilation();
-    auto& nameExpr = Expression::bind(*syntax.name, context, ASTFlags::AllowCoverpoint);
-    if (nameExpr.bad())
-        return badExpr(comp, nullptr);
 
-    auto sym = nameExpr.getSymbolReference();
+    // fork: binsof(a.b.c) of a non-standard hierarchical cross item names the
+    // coverpoint the cross declared for it implicitly, not the variable.
+    const Symbol* sym = nullptr;
+    if (syntax.name->kind != SyntaxKind::IdentifierName &&
+        context.scope->asSymbol().kind == SymbolKind::CoverCrossBody) {
+        auto& cross = context.scope->asSymbol().getParentScope()->asSymbol().as<CoverCrossSymbol>();
+        auto name = hierarchicalCrossItemName(*syntax.name);
+        for (auto target : cross.targets) {
+            if (target->isImplicitlyDeclared() && target->name == name)
+                sym = target;
+        }
+    }
+
+    if (!sym) {
+        auto& nameExpr = Expression::bind(*syntax.name, context, ASTFlags::AllowCoverpoint);
+        if (nameExpr.bad())
+            return badExpr(comp, nullptr);
+        sym = nameExpr.getSymbolReference();
+    }
     if (sym && sym->kind == SymbolKind::CoverCross) {
         auto& diag = context.addDiag(diag::CrossIdentInBinsof, syntax.name->sourceRange());
         diag << sym->name;
@@ -1096,7 +1129,8 @@ BinsSelectExpr& ConditionBinsSelectExpr::fromSyntax(const BinsSelectConditionExp
     if (!sym || (sym->kind != SymbolKind::Coverpoint &&
                  (sym->kind != SymbolKind::CoverageBin ||
                   sym->getParentScope()->asSymbol().kind != SymbolKind::Coverpoint))) {
-        context.addDiag(diag::InvalidBinsTarget, syntax.name->sourceRange());
+        context.addDiag(diag::InvalidBinsTarget, syntax.name->sourceRange())
+            << SyntaxPrinter().setIncludeTrivia(false).print(*syntax.name).str();
         return badExpr(comp, nullptr);
     }
 
