@@ -128,11 +128,12 @@ Expression& CallExpression::fromLookup(Compilation& compilation, const Subroutin
 
     // Can only omit the parentheses for invocation if the subroutine is a task,
     // void function, or class method.
+    // fork: the call is still built after the error, so that a tool which
+    // downgrades it (legacy code calls interface functions so) gets the
+    // complete AST; with the error left an error nothing changes.
     if (!syntax && subroutineParent.kind != SymbolKind::ClassType) {
-        if (!sub->getReturnType().isVoid()) {
+        if (!sub->getReturnType().isVoid())
             context.addDiag(diag::MissingInvocationParens, range) << sub->name;
-            return badExpr(compilation, nullptr);
-        }
     }
 
     auto& result = fromArgs(compilation, subroutine, thisClass,
