@@ -2015,10 +2015,14 @@ void Compilation::checkDPIMethods(std::span<const SubroutineSymbol* const> dpiIm
         if (!cId.empty()) {
             bool shouldRecordResolved = true;
 
+            // fork: an export of the same C name from another scope is
+            // recorded too (IEEE 1800 35.5.3: imports in different scopes
+            // reach the export of their own scope); only a signature
+            // mismatch, or a second one in the same scope, is dropped.
             auto [nameIt, nameInserted] = nameMap.emplace(cId, &sub);
             if (!nameInserted) {
-                shouldRecordResolved = false;
                 if (!checkSignaturesMatch(sub, *nameIt->second)) {
+                    shouldRecordResolved = false;
                     auto& diag = scope->addDiag(diag::DPISignatureMismatch, syntax->name.range());
                     diag << cId;
                     diag.addNote(diag::NotePreviousDefinition, nameIt->second->location);
